@@ -1,0 +1,235 @@
+---
+title: "Canadian support for the Liberal party"
+author: "Raima Zaman, 1006848100"
+subtitle: "Age, social opinions and the country"
+date: December 7, 2020
+output: 
+  beamer_presentation:
+    theme: "Pittsburgh"
+    colortheme: "crane"
+    fonttheme: "serif"
+    slide_level: 2
+---
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# echo=FALSE will stop the code chunk from appearing in the knit document
+# warning=FALSE and message=FALSE will stop R messages from appearing in the knit document
+library(tidyverse)
+
+# the data is not in the csv form we usually use, but in an R format, .rds.
+# the following line saves it as ces19 and you can work with it as you're used to now
+ces19 <- readRDS("ces19.rds")
+
+
+# see the project information page for more information: https://q.utoronto.ca/courses/184002/pages/project
+```
+
+## Introduction
+
+This research was conducted with the help of data from the 2019 Online Canadian Election Survey. The data frame contained information regarding potential voters and their opinions, and by using this information, we are able to present research on three questions to the respective Liberal Party voting staffer.
+
+- **Are the means for the number of liberal party voters the same in both Montreal and Quebec?**
+- **Is there is any association between feelings towards immigrants and voting for the Liberal Party?**
+- **Based on age, can we predict how candidates rate the Liberal party compared to the Conservative party in Quebec?**
+
+
+## Data Summary
+
+- **For the first question**, we only considered candidates currently living in either Quebec or Ontario. The only variables we considered here were their voting choices and province. Based on this, we procured a graph showing the distribution of voting choices across Ontario and Quebec.
+
+- **For the second question**, we did the same thing, but we also considered how high or low they rated the Liberal Party, along with how they feel towards immigrants. We showed a visual representation of the association.
+
+- **For the final question**, we considered possible voters *only* from Quebec, as we wanted to see if we could at least find some sort of indication that would allow us to increase liberal party votes in Quebec. We considered the age variable as a predictor for the voting choice of candidates between *only* the Liberal and Conservative parties.
+
+
+## Research Question 1: Are the mean number of liberal party voters the same in Quebec and Ontario?
+
+- By finding the average distribution of the number of liberal party voters in Quebec and Ontario, we can direct campaigning accordingly. 
+- According to Figure 1, we can see that the voting choice dominates for the Liberals in both Quebec and Ontario.
+
+
+## Results for Q1
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3}
+ces19.2<-ces19 %>%
+  filter(!is.na(votechoice))%>%
+  filter(province=="Quebec" | province=="Ontario")%>%
+  select(province, votechoice)
+
+ggplot(data=ces19.2, aes(x=votechoice, colour=province, fill=province))+
+  geom_bar()+
+  labs(title="Figure 1: Choice of Voting Party", x="Voting Party", y="Number of Votes")+
+  coord_flip()
+```
+
+
+$$H_0:\mu_{quebec}-\mu_{ontario}=0$$
+$$H_1:\mu_{quebec}-\mu_{ontario}\neq0$$
+Where $\mu$ represents the average number of votes for the Liberal Party as a first choice.
+
+
+## Interpretations for Q1
+
+- Using a randomization test, we found that the p-value was 0. As the p-value is incredibly small, we can conclude that we have very strong evidence against the null hypothesis. 
+- That is, we have strong evidence that the average number of voters for the Liberal Party in Ontario and Quebec are not the same. 
+
+- From Figure 1, we can back up this data as we can clearly see that the Liberal Party voters in Quebec are one thirds of Liberal Party voters in Ontario. The average number of Liberal voters in Quebec are not even close to the numbers in Ontario.
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+ces19.2<-ces19 %>%
+  filter(!is.na(votechoice) & !is.na(province))%>%
+  filter(province=="Quebec" | province=="Ontario")%>%
+  select(province, votechoice)
+
+group_means<-ces19.2%>%
+  group_by(province)%>%
+  summarise(n=n(),
+            n_liberal=sum(votechoice=="Liberal Party"),
+            prop_liberal=n_liberal/n)%>%
+  summarise(diff_means=diff(prop_liberal))
+test_stat<-as.numeric(group_means)
+test_stat
+
+set.seed(100)
+repetitions <- 1000;
+simulated_values <- rep(NA, repetitions)
+
+for(i in 1:repetitions){
+  sim_value<-ces19.2 %>%
+    mutate(province=sample(province)) %>%
+    group_by(province) %>%
+    summarise(n=n(),
+              n_liberal=sum(votechoice=="Liberal Party"),
+              prop_liberal=n_liberal/n)%>%
+    summarise(value=diff(prop_liberal))
+  
+  simulated_values[i]<-as.numeric(sim_value)
+}
+sim<-tibble(diff_prop = simulated_values)
+
+sim%>%
+  ggplot(aes(x=diff_prop)) +
+  geom_histogram(colour="black", fill="lightblue")+
+  geom_vline(xintercept=abs(test_stat), colour="lightpink")+
+               geom_vline(xintercept=-abs(test_stat), colour="yellow") +
+               labs(x="Difference in Proportions")
+
+num_more_extreme <- sim %>% 
+filter(abs(diff_prop) >= abs(test_stat)) %>% 
+  summarise(n())
+
+p_value <- as.numeric(num_more_extreme / repetitions)
+p_value
+```
+
+## Research Question 2: Is there an association between feelings towards immigrants and voting for the Liberal party in Quebec and Ontario?
+
+By finding an association between these two factors, we will be able to know whether our immigration forward policies have indeed been helpful in the election and whether we should continue them.
+
+
+## Results for Q2
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=4}
+library(dplyr)
+
+ces19.3<-ces19 %>%
+  filter(!is.na(party_rating_23))%>%
+  filter(!is.na(groups_therm_2))%>%
+  filter(province=="Quebec" | province=="Ontario")%>%
+  select(party_rating_23, groups_therm_2, province, votechoice)
+
+
+ces19.3%>%
+  ggplot(aes(x=groups_therm_2, y=party_rating_23))+
+  geom_point(alpha=0.5, colour="black")+
+  labs(title="Figure 2: Association between Ranking of Liberal Party and immigrants", x="How voters feel about immigrants",
+       y="Rating of Liberal Party")+
+  facet_wrap(~province)+
+  theme_minimal()
+```
+
+---
+
+$${LiberalPartyRating}_i=\beta_0+\beta_{1}{FeelingsImm}_i$$
+$LiberalPartyRating_i$ represents the rating that candidates from Quebec and Ontario allotted to the Liberal party. $FeelingsImm_i$ represents the ranked feelings candidates from these two provinces have towards immigrants. $\beta_0$ and $\beta_1$ represent the intercept and the slope parameter respectively. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+model1<-lm(party_rating_23~groups_therm_2, data=ces19.3)
+summary(model1)$coefficients
+```
+
+This would give us a final equation of:
+$${LiberalPartyRating}_i=24.425+0.462{FeelingsImm}_i$$
+
+## Interpretations for Q2
+
+Though the scatter plot in Figure 2 is quite messy, we can see that there is indeed an association between how voters in Quebec and Ontario feel about immigrants and their rating of the Liberal Party. Voters in Quebec and especially in Ontario, who indicated positive rating towards immigrants also ended up rating the Liberal Party at a high ranking. 
+
+**However**, by using linear regression, we can see that there is a very weak positive association between candidates who would choose the Liberal Party and those who have strong positive feelings towards immigrants. 
+
+- Thus we can assume our policies for immigration are not that useful in generating voters to support the Liberal Party.
+
+
+## Research Question 3: Based on age, can we predict how candidates rate the Liberal party compared to the Conservative party in Quebec?
+
+
+- As we already know, there are a greater number of Liberal Party voters in Ontario compared to Quebec. Thus we would like to increase our voting pool in Quebec by knowing more about a specific age demographic. 
+- Using a classification tree, we can try to predict a general age distribution for candidates based on their choice of vote: Liberal or Conservative. 
+- Using this information, we will be able to target our campaigns to demographics where our voters are lacking in Quebec.
+
+## Results for Q3:
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3}
+library(rpart)
+library(partykit)
+library(knitr)
+
+ces19.5<-ces19%>%
+  filter(!is.na(age) & !is.na(votechoice))%>%
+  filter(province=="Quebec")%>%
+  select(age, votechoice, province)
+
+ces19.5 <- ces19 %>% rowid_to_column()
+n<-nrow(ces19.5)
+
+set.seed(100)
+train_ids<-sample(1:n, size=round(0.8*n))
+
+train<-ces19.5%>%
+  filter(rowid %in% train_ids)
+test<-ces19.5%>%
+  filter(!(rowid %in% train_ids))
+
+tree<-rpart(votechoice~age, data=train)
+plot(as.party(tree), type="extended", gp=gpar(ces=0.8))
+```
+
+## Interpretations Q3
+
+- As we can see from the classification, it has predicted that candidates aged below 38.5 years tend to vote for the Liberal Party in Quebec. Comparatively, those candidates aged 38.5 years and above, tend to vote for the Conservative Party in Quebec.
+
+- As the older demographic is slightly more Conservative, we should direct campaigning towards these age groups to capture more votes.
+
+- As the younger demographic is slightly more Liberal, we should take approaches to keep these votes secured.
+
+
+## Limitations
+
+- **Q1:** As we used randomization tests to confirm our results, we should be aware of possibilities of Type 1 or Type 2 error.
+
+- **Q2:** The data on our scatter plot appears too clustered and may not give us an accurate answer. One factor to be considered is that while the correlation tells us about the linear association, it does not tell us much about the general association.  
+
+- **Q3:** One problem we can immediately see is that our classification tree does not give us very pure nodes. That is, the margin of error appears quite high for both nodes. 
+
+## Conclusion
+
+- As we concluded that the average number of Liberal voters in Ontario is vastly larger than those in Quebec, we should plan forward and **allocate funds to campaign harder in Quebec**. This is a huge province where we could gain a lot more voters by campaigning harder.
+
+- We also found a weak positive association between candidates' feelings towards immigrants and consequently choosing to vote for the Liberal Party. We can state that our immigration forward policies have not been helpful in bringing in voters and funds should be allocated to other supports, such as our LGBT or abortion funds.
+
+---
+
+- We found that generally younger candidates *do* tend to be more liberal in Quebec. We should use this knowledge to our advantage and direct further campaigning in Quebec, to secure the votes of these youth and further bring to light our **pension policies** and **health care initiatives**, so that we can motivate older candidates to become liberal voters.
+
+
